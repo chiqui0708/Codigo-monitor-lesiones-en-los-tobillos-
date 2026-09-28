@@ -1,0 +1,87 @@
+/*
+ * Monitor de Temperatura Corporal
+ * 4 sensores DS18B20 via Serial JSON
+ * Pines: 4, 16, 27, 32
+ * Librerias: DallasTemperature, OneWire, ArduinoJson
+ */
+
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <ArduinoJson.h>
+
+#define PIN_SENSOR_1  4
+#define PIN_SENSOR_2  16
+#define PIN_SENSOR_3  27
+#define PIN_SENSOR_4  32
+
+#define INTERVALO_MS  2000   // lectura cada 2 segundos
+
+OneWire bus1(PIN_SENSOR_1);
+OneWire bus2(PIN_SENSOR_2);
+OneWire bus3(PIN_SENSOR_3);
+OneWire bus4(PIN_SENSOR_4);
+
+DallasTemperature sensor1(&bus1);
+DallasTemperature sensor2(&bus2);
+DallasTemperature sensor3(&bus3);
+DallasTemperature sensor4(&bus4);
+
+unsigned long ultimaLectura = 0;
+
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+
+  sensor1.begin();
+  sensor2.begin();
+  sensor3.begin();
+  sensor4.begin();
+
+  Serial.println("# Monitor de Temperatura listo");
+  Serial.println("# Esperando lecturas...");
+}
+
+void loop() {
+  unsigned long ahora = millis();
+  if (ahora - ultimaLectura >= INTERVALO_MS) {
+    ultimaLectura = ahora;
+
+    sensor1.requestTemperatures();
+    sensor2.requestTemperatures();
+    sensor3.requestTemperatures();
+    sensor4.requestTemperatures();
+
+    float t1 = sensor1.getTempCByIndex(0);
+    float t2 = sensor2.getTempCByIndex(0);
+    float t3 = sensor3.getTempCByIndex(0);
+    float t4 = sensor4.getTempCByIndex(0);
+
+    StaticJsonDocument<256> doc;
+    doc["ts"] = ahora;
+
+    JsonArray sens = doc.createNestedArray("s");
+
+    JsonObject s1 = sens.createNestedObject();
+    s1["id"] = 1; s1["pin"] = PIN_SENSOR_1;
+    s1["t"]  = (t1 == -127.0) ? (float)NULL : t1;
+    s1["ok"] = (t1 != -127.0);
+
+    JsonObject s2 = sens.createNestedObject();
+    s2["id"] = 2; s2["pin"] = PIN_SENSOR_2;
+    s2["t"]  = (t2 == -127.0) ? (float)NULL : t2;
+    s2["ok"] = (t2 != -127.0);
+
+    JsonObject s3 = sens.createNestedObject();
+    s3["id"] = 3; s3["pin"] = PIN_SENSOR_3;
+    s3["t"]  = (t3 == -127.0) ? (float)NULL : t3;
+    s3["ok"] = (t3 != -127.0);
+
+    JsonObject s4 = sens.createNestedObject();
+    s4["id"] = 4; s4["pin"] = PIN_SENSOR_4;
+    s4["t"]  = (t4 == -127.0) ? (float)NULL : t4;
+    s4["ok"] = (t4 != -127.0);
+
+    serializeJson(doc, Serial);
+    Serial.println();
+  }
+}
